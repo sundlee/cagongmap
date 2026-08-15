@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# 예시 파일은 커밋한다 (실제 키가 들어가지 않는 파일)
+!.env.local.example
 
 # vercel
 .vercel
