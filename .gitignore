@@ -35,6 +35,9 @@ yarn-error.log*
 # 예시 파일은 커밋한다 (실제 키가 들어가지 않는 파일)
 !.env.local.example
 
+# playwright MCP 검증 산출물 (스냅샷·스크린샷)
+.playwright-mcp/
+
 # vercel
 .vercel
 

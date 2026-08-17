@@ -15,7 +15,9 @@ Next.js 16 (App Router, Turbopack) + React 19 + Tailwind 4 + zod 4.
 
 ## 헌법: docs/scope.md
 
-- **백엔드·로그인·DB·쓰기 API를 만들지 않는다.** 데이터는 `data/cafes.json` 단일 파일.
+- **로그인·쓰기 API를 만들지 않는다.** 읽기 데이터는 Supabase `places` 테이블
+  (2026-08 사용자 결정으로 JSON에서 전환 — scope.md "DB 없음"의 유일한 예외, 읽기 전용).
+  `data/cafes.json`은 시드 마이그레이션의 원본 기록으로만 남고 앱은 읽지 않는다.
 - 제보·웨이팅리스트는 외부 폼 임베드로 처리한다.
 - `docs/data-schema.md`는 장기 스키마 명세로, 현재 `lib/cafes/schema.ts`와 **다르다**.
   이관은 별도 단계이며 그 전까지는 코드(`schema.ts`)가 우선한다.
@@ -25,10 +27,10 @@ Next.js 16 (App Router, Turbopack) + React 19 + Tailwind 4 + zod 4.
 데이터 흐름은 단선이다:
 
 ```
-data/cafes.json ──정적 import──▶ lib/cafes/repository.ts   zod 검증 + 모듈 캐시. 실패 시 throw
+Supabase places ──lib/supabase/server.ts──▶ lib/cafes/repository.ts   zod 이중 검증 + 프로세스 캐시. 실패 시 throw
                                         │  getCafes()
                                         ▼
-                                 app/page.tsx               서버 컴포넌트
+                                 app/page.tsx               서버 컴포넌트 (빌드 타임 조회·정적 프리렌더)
                                         │  props (직렬화 가능한 plain JSON)
                                         ▼
                                  components/map/KakaoMap.tsx   "use client" — 유일한 경계
@@ -50,8 +52,9 @@ data/cafes.json ──정적 import──▶ lib/cafes/repository.ts   zod 검�
 
 ## 아키텍처 규칙
 
-- 카페 데이터 접근은 반드시 `lib/cafes/repository.ts` 경유 (JSON 직접 import 금지).
-  DB 전환에 대비해 시그니처는 async를 유지한다.
+- 카페 데이터 접근은 반드시 `lib/cafes/repository.ts` 경유 (컴포넌트에서 Supabase 직접 호출 금지).
+  Supabase 클라이언트는 `lib/supabase/server.ts` 단일 진입점(서버 전용, env에 NEXT_PUBLIC 없음).
+  스키마 마이그레이션 후에는 `lib/supabase/database.types.ts`를 재생성해 통째로 덮어쓴다.
 - 카카오 SDK 로드는 `lib/kakao/loader.ts` 단일 진입점. 타입은 `lib/kakao/kakao.d.ts`에만
   추가하고, 없는 멤버를 any로 우회하지 않는다.
 - enum → 한글 라벨은 `lib/cafes/labels.ts`의 `Record<Enum, string>` 패턴
@@ -60,13 +63,20 @@ data/cafes.json ──정적 import──▶ lib/cafes/repository.ts   zod 검�
 
 ## 데이터 편집
 
-- 새 카페의 `id`는 ascii kebab-case로 부여하고 이후 바꾸지 않는다 (URL 공유용 안정 식별자).
-- 스키마 위반·id 중복은 페이지 로드 시 즉시 실패한다.
+- 데이터 편집은 Supabase `places`에서 한다 (클라이언트 쓰기 정책이 없으므로 대시보드 SQL 등
+  service role 경유). `data/cafes.json`을 고쳐도 앱에는 반영되지 않는다.
+- 새 카페의 `slug`는 ascii kebab-case로 부여하고 이후 바꾸지 않는다 (URL 공유용 안정 식별자.
+  앱 코드에서는 `Cafe.id`로 노출된다).
+- 스키마 위반·slug 중복은 DB 제약과 렌더 시 zod 이중 검증이 즉시 잡는다 (조용히 넘어가지 않는다).
+- 데이터 변경을 화면에 반영하려면: dev는 서버 재시작(프로세스당 1회 조회), 프로덕션은 재빌드
+  (빌드 타임 프리렌더).
 
 ## 환경 변수
 
 - `NEXT_PUBLIC_KAKAO_MAP_KEY` — `.env.local` (예시: `.env.local.example`).
   값 변경 후 dev 서버 재시작 필요 (빌드 타임 인라인).
+- `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` — 서버 전용(NEXT_PUBLIC 아님),
+  `lib/supabase/server.ts`만 읽는다. 빌드 타임 조회에 쓰이므로 배포/CI 환경에도 설정할 것.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
