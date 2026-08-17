@@ -27,7 +27,7 @@ function loadAll(): Cafe[] {
     );
   }
 
-  cache = parsed.data.cafes;
+  cache = parsed.data;
   return cache;
 }
 

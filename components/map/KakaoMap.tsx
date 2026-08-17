@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Cafe } from "@/lib/cafes/schema";
 import { KAKAO_APP_KEY, loadKakaoMaps } from "@/lib/kakao/loader";
-import CafeDetailPanel from "./CafeDetailPanel";
 import CafeMarkers from "./CafeMarkers";
 
-/** 성수역 부근. 마커가 있으면 CafeMarkers가 bounds로 다시 맞춘다. */
-const SEONGSU_CENTER = { lat: 37.5445, lng: 127.0557 };
+/** 석촌호수 부근(송파·잠실 상권). 마커가 있으면 CafeMarkers가 bounds로 다시 맞춘다. */
+const DEFAULT_CENTER = { lat: 37.5085, lng: 127.0817 };
 
 type Status = "loading" | "ready" | "error";
 
@@ -19,7 +18,6 @@ export default function KakaoMap({ cafes }: { cafes: Cafe[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selectedCafe = cafes.find((cafe) => cafe.id === selectedId) ?? null;
-  const clearSelection = useCallback(() => setSelectedId(null), []);
 
   useEffect(() => {
     if (!KAKAO_APP_KEY) return;
@@ -33,10 +31,10 @@ export default function KakaoMap({ cafes }: { cafes: Cafe[] }) {
         setMap(
           new kakao.maps.Map(containerRef.current, {
             center: new kakao.maps.LatLng(
-              SEONGSU_CENTER.lat,
-              SEONGSU_CENTER.lng,
+              DEFAULT_CENTER.lat,
+              DEFAULT_CENTER.lng,
             ),
-            level: 5,
+            level: 6,
           }),
         );
         setStatus("ready");
@@ -77,8 +75,12 @@ export default function KakaoMap({ cafes }: { cafes: Cafe[] }) {
         <CafeMarkers map={map} cafes={cafes} onSelect={setSelectedId} />
       )}
 
+      {/* 상세 패널(다음 단계)이 들어올 자리. 지금은 마커 클릭이 동작하는지
+          확인할 수 있게 선택된 카페 이름만 최소로 표시한다. */}
       {selectedCafe && (
-        <CafeDetailPanel cafe={selectedCafe} onClose={clearSelection} />
+        <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full border border-neutral-200 bg-white px-4 py-2 shadow-sm">
+          <p className="text-sm font-medium">{selectedCafe.name}</p>
+        </div>
       )}
     </div>
   );
